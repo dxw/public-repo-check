@@ -44,6 +44,43 @@ func checkLicense(repo Repo) {
 	}
 }
 
+func checkFile(repo Repo, file string) (bool, error) {
+	url := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s", repo.FullName, repo.DefaultBranch, file)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return false, err
+	}
+
+	return resp.StatusCode == http.StatusOK, nil
+}
+
+func checkReadme(repo Repo) {
+	check, err := checkFile(repo, "README.md")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if check {
+		fmt.Printf("✅ Has README\n")
+	} else {
+		fmt.Printf("❌ No README found\n")
+	}
+}
+
+func checkContributing(repo Repo) {
+	check, err := checkFile(repo, "CONTRIBUTING.md")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if check {
+		fmt.Printf("✅ Has CONTRIBUTING\n")
+	} else {
+		fmt.Printf("❌ No CONTRIBUTING found\n")
+	}
+}
+
 var endOfList = errors.New("end of list")
 
 func fetchRepos(org string) []Repo {
