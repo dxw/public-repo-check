@@ -6,41 +6,47 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/tomnomnom/linkheader"
 )
 
 func main() {
-	checkOrg("dxw")
+	if len(os.Args) == 1 {
+		log.Fatal("Usage: public-repo-check ${ORG_NAME}")
+	}
+	for _, arg := range os.Args[1:] {
+		checkOrg(arg)
+	}
 }
 
 func checkOrg(org string) {
 	repos := fetchRepos(org)
 
 	for _, repo := range repos {
-		fmt.Printf("%s:\n", repo.Name)
-
 		if repo.Archived {
-			fmt.Printf("✅ Archived. No further checks\n")
+			message(repo, true, "Archived. No further checks")
 			continue
 		}
 
 		if repo.Fork {
-			fmt.Printf("✅ Fork. No further checks\n")
+			message(repo, true, "Fork. No further checks")
 			continue
 		}
 
 		checkLicense(repo)
+		checkReadme(repo)
+		checkContributing(repo)
 	}
 }
 
 func checkLicense(repo Repo) {
 	if repo.License == nil {
-		fmt.Printf("❌ License missing!\n")
+		message(repo, false, "License missing!")
 	} else if repo.License.Url != "https://api.github.com/licenses/mit" {
-		fmt.Printf("❌ License not MIT (%s)\n", repo.License.Url)
+		message(repo, false, fmt.Sprintf("License not MIT (%s)", repo.License.Url))
 	} else {
-		fmt.Printf("✅ License OK\n")
+		message(repo, true, "License OK")
 	}
 }
 
@@ -62,9 +68,9 @@ func checkReadme(repo Repo) {
 	}
 
 	if check {
-		fmt.Printf("✅ Has README\n")
+		message(repo, true, "Has README")
 	} else {
-		fmt.Printf("❌ No README found\n")
+		message(repo, false, "No README found")
 	}
 }
 
@@ -75,10 +81,19 @@ func checkContributing(repo Repo) {
 	}
 
 	if check {
-		fmt.Printf("✅ Has CONTRIBUTING\n")
+		message(repo, true, "Has CONTRIBUTING")
 	} else {
-		fmt.Printf("❌ No CONTRIBUTING found\n")
+		message(repo, false, "No CONTRIBUTING found")
 	}
+}
+
+func message(repo Repo, ok bool, message string) {
+	status := "❌"
+	if ok {
+		status = "✅"
+	}
+
+	fmt.Printf("%s %s: %s\n", status, repo.FullName, message)
 }
 
 var endOfList = errors.New("end of list")
@@ -132,14 +147,16 @@ func fetchSomeRepos(url string) ([]Repo, string, error) {
 }
 
 type Repo struct {
-	Name     string   `json:"name"`
-	Private  bool     `json:"private"`
-	HtmlUrl  string   `json:"html_url"`
-	Fork     bool     `json:"fork"`
-	Url      string   `json:"url"` // API URL
-	CloneUrl string   `json:"clone_url"`
-	Archived bool     `json:"archived"`
-	License  *License `json:"license"`
+	Name          string   `json:"name"`
+	FullName      string   `json:"full_name"`
+	Private       bool     `json:"private"`
+	HtmlUrl       string   `json:"html_url"`
+	Fork          bool     `json:"fork"`
+	Url           string   `json:"url"` // API URL
+	CloneUrl      string   `json:"clone_url"`
+	Archived      bool     `json:"archived"`
+	License       *License `json:"license"`
+	DefaultBranch string   `json:"default_branch"`
 }
 
 type License struct {
